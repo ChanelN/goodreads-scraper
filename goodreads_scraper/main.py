@@ -541,7 +541,7 @@ df_price = pd.DataFrame()
 
 # start of main program
 amazon_login()
-for link_no in range(2):
+for link_no in range(1):
     page_url = base_link + relative_url[link_no]
     if link_no % 20 == 0:
         time.sleep(5)
