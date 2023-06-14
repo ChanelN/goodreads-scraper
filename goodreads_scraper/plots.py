@@ -11,35 +11,42 @@ from wordcloud import WordCloud
 
 from flair.models import TextClassifier
 from flair.data import Sentence
-'''
+
+'''download when running for first time
 import nltk
 nltk.download('stopwords')
 nltk.download('punkt')
+nltk.download('wordnet')
 '''
-
-# rc= runtime configuration
-# makes the whole figure fit in
-plt.rcParams["figure.autolayout"] = True
 
 # reading in all my csv files
 book_reviews_df = pd.read_csv('Top_book_reviews.csv')
 book_data_df = pd.read_csv('Top_book_details.csv')
 book_price_df = pd.read_csv('Top_book_prices.csv')
+
+book_reviews_df = book_reviews_df.dropna().reset_index(drop=True)
 book_price_df = book_price_df.dropna()
 # worst_books list
 control_reviews_df = pd.read_csv('Worst_book_reviews.csv')
 control_data_df = pd.read_csv('Worst_book_details.csv')
 control_price_df = pd.read_csv('Worst_book_prices.csv')
+
+control_reviews_df = control_reviews_df.dropna()
 control_price_df = control_price_df.dropna()
 # worst_rated list
 worst_rated_reviews_df = pd.read_csv('Worst_rated_book_reviews.csv')
 worst_rated_data = pd.read_csv('Worst_rated_book_details.csv')
 worst_rated_price = pd.read_csv('Worst_rated_book_prices.csv')
+
+worst_rated_reviews_df = worst_rated_reviews_df.dropna()
 worst_rated_price = worst_rated_price.dropna()
 
-#
-#
 
+#
+#
+# rc= runtime configuration
+# makes the whole figure fit in
+plt.rcParams["figure.autolayout"] = True
 def convert_dates(df):
     # convert date published here to make it faster than in program
     # y-m-d
@@ -55,7 +62,7 @@ def convert_dates(df):
 # how well is each genre represented - number of books in each genre
 def plt_genres(df):
     genre_count = df.groupby('Top Genre')['Title'].apply(lambda title: list(title.unique())).to_dict()
-    #print(genre_count)
+    # print(genre_count)
     # this gives all the labels for the X-axis
     x_labels = [genre for genre in genre_count]
     # this gets the count of all books in the genre
@@ -87,17 +94,17 @@ def year_to_rating(df):
     # inplace will sort the original dataframe
     book_year = df.sort_values('Date published')
     yearly_grouping = book_year.groupby(book_year['Date published'].dt.year)['Rating'].apply(list)
-    #print(yearly_grouping.head())
+    # print(yearly_grouping.head())
     '''
     index is the year, and the values are the lists of value column values for each year.
     '''
     # rating list = [[3.0, 5.0, 4.0, 5.0, 5.0], [values for year 2], ect]
     rating_list = [yearly_grouping[year] for year in yearly_grouping.index]
-    #print(rating_list)
+    # print(rating_list)
 
     # yearly = [1.2, 4.0, 4.5]
     yearly_avg = [sum(ratings) / len(ratings) for ratings in rating_list]
-    #print(yearly_avg)
+    # print(yearly_avg)
 
     plt.figure(figsize=(10, 6))
     plt.bar(yearly_grouping.index, yearly_avg)
@@ -109,16 +116,16 @@ def year_to_rating(df):
 
 def ratings_over_years(df):
     year_list = sorted(df['Review Date'].dt.year.unique().tolist())
-    #print(year_list)
-
+    print(year_list)
 
     # this group each book together, puts the reviews in ascending order of review date
     sorted_df = df.sort_values('Review Date')
-    yearly_rating = sorted_df.groupby(['Top Genre', sorted_df['Review Date'].dt.year])['Rating'].apply(
-        lambda x: sum(x) / len(x))  # list
-    #print(yearly_rating.head())
+    # yearly_rating = sorted_df.groupby(['Top Genre', sorted_df['Review Date'].dt.year])['Rating'].apply(lambda x: sum(x) / len(x))  # list)
+    yearly_rating = sorted_df.groupby(['Top Genre', sorted_df['Review Date'].dt.year])['Rating'].agg(['count', 'mean'])
+    print(yearly_rating)
+
     yearly_rating = yearly_rating.reset_index()
-    #print(yearly_rating.head())
+    print(yearly_rating)
 
     plt.figure(figsize=(15, 6))
     plt.gca().set_xticks(year_list)
@@ -126,7 +133,7 @@ def ratings_over_years(df):
 
     for genre in yearly_rating['Top Genre'].unique():
         separate_genre = yearly_rating[yearly_rating['Top Genre'] == genre]
-        plt.plot(separate_genre['Review Date'], separate_genre['Rating'], label=genre, marker='o')
+        plt.plot(separate_genre['Review Date'], separate_genre['mean'], label=genre, marker='o')
 
     # Add labels and title
     plt.xlabel('Year')
@@ -138,7 +145,7 @@ def ratings_over_years(df):
 
 def price_per_genre(price_reviews):
     genre_price = price_reviews.groupby('Top Genre')['Price'].mean().round(2).reset_index()
-    #print(genre_price)
+    # print(genre_price)
 
     plt.figure(figsize=(10, 6))
     plt.bar(genre_price['Top Genre'], genre_price['Price'])
@@ -153,11 +160,10 @@ def price_per_genre(price_reviews):
     plt.title('Average Price by Genre')
     plt.show()
 
-
 # total amount of rating/review for each genre
 def no_reviews(df):
     total_reviews = df.groupby('Top Genre')['Total ratings'].count().reset_index()
-    #print(total_reviews)
+    # print(total_reviews)
     plt.bar(total_reviews['Top Genre'], total_reviews['Total ratings'])
     plt.xticks(rotation=45, ha='right')
     plt.xlabel('Genre')
@@ -166,14 +172,88 @@ def no_reviews(df):
     plt.show()
 
 
+# analyse whats poppin in 2023 - no books in 2023
+'''
+yearly_rating = book_data_df.groupby(book_data_df['Date published'].dt.year)
+mask = yearly_rating.get_group(2023)
+print(mask)
+'''
+
+# boxplot of number of reviews per every 20 books
+def review_boxplot(df):
+    # this splits the df into seperate elements including 20 books each
+    lst = [df.iloc[i:i + 20] for i in range(0, len(df) - 20 + 1, 20)]
+    # print(lst)
+
+    titles = ['top 20', 'top 40', 'top 60', 'top 80', 'top 100']
+    # Set the figure size
+    plt.rcParams["figure.figsize"] = [7.50, 3.50]
+    plt.rcParams["figure.autolayout"] = True
+
+    test = {}
+    for i in range(len(lst)):
+        test.update({titles[i]: lst[i]['Total ratings']})
+
+    print(test)
+    fig, ax = plt.subplots()
+    ax.boxplot(test.values())
+    ax.set_xticklabels(test.keys())
+
+    plt.title('Boxplot of Value by Group')
+    plt.xlabel('Group')
+    plt.ylabel('Value')
+    plt.show()
+
+
 # create wordcloud of most frequent words
+
+#
+'''
+new - i need to balance out the dataset - maybe remove common books and control amount of 
+books per genre
+'''
+
+#show books in common
+common = pd.merge(book_data_df, control_data_df, on=['Title'], how='inner')
+#common.to_csv("common_books.csv")
+#the reason theres 2 'to kill a mockingbird' - the descriptions are diff
+
+common_titles = common['Title'].tolist()
+#negation operator ~ 
+new_best = book_data_df[~book_data_df['Title'].isin(common_titles)]
+new_control = control_data_df[~control_data_df['Title'].isin(common_titles)]
+
+
+#now i removed all the common books - allow only 10 books per genre
+new_best = new_best.groupby('Top Genre')
+new_control = new_control.groupby('Top Genre')
+
+best_balanced = pd.DataFrame()
+control_balanced = pd.DataFrame()
+
+def append_10(grouped, emptydf):
+    for group_name, group_df in grouped:
+        #groupdf represents every genre group
+        emptydf = emptydf.append(group_df.head(10))
+    return emptydf
+
+best_balanced = append_10(new_best, best_balanced)
+control_balanced = append_10(new_control, control_balanced)
+#   BOOK REVIEWS
+#book reviews - need to be balanced, not book data lol
+common_best = best_balanced['Title'].tolist()
+common_worst = control_balanced['Title'].tolist()
+
+balanced_best_reviews = book_reviews_df[book_reviews_df['Title'].isin(common_best)].reset_index(drop=True)
+balanced_worst_reviews = control_reviews_df[control_reviews_df['Title'].isin(common_worst)].reset_index(drop=True)
+
 
 # remove special char, lowercase, create tokens, stop words, lemm
 # NLTK provides the sent_tokenize() function to split text into words
 # ¡¡¡¡¡
 stop_words = stopwords.words('english')
 
-added_stopwords = ["book", "review", "read", "author", "character", "story", "one", "novel", "even", "though"]
+added_stopwords = ['book', 'review', 'read', 'author', 'character', 'story', 'one', 'novel', 'even', 'though', 'year old']
 stop_words.extend(added_stopwords)
 punctuation = string.punctuation
 
@@ -211,12 +291,11 @@ def clean_text(review):
     cleaned_review = ' '.join(lemm_words)
     return cleaned_review
 
-
 def add_reviews(df):
     all_descriptions = [description for description in df['Description']]
     text = ' '.join(all_descriptions)
-    #print(text)
-    wordcloud = WordCloud(width=800, height=800, collocations=True, min_word_length=3, collocation_threshold=3,
+    # print(text)
+    wordcloud = WordCloud(width=800, height=800, collocations=True, min_word_length=2, collocation_threshold=2,
                           min_font_size=15).generate(text)
     plt.imshow(wordcloud, interpolation='bilinear')
     plt.axis('off')
@@ -230,9 +309,24 @@ def add_reviews(df):
     print(list(word_freq.items())[:5])
 
 
+balanced_best_reviews = balanced_best_reviews.drop(['Username', 'Review Date'], axis=1)
+# book_reviews_df['Description'] rows are objects, but i need to convert them to string
+custom_stopwords(best_balanced)
+balanced_best_reviews['Description'] = balanced_best_reviews['Description'].apply(lambda x: clean_text(str(x)))
+add_reviews(balanced_best_reviews)
+
+
+balanced_worst_reviews = balanced_worst_reviews.drop(['Username', 'Review Date'], axis=1)
+custom_stopwords(control_balanced)
+balanced_worst_reviews['Description'] = balanced_worst_reviews['Description'].apply(lambda x: clean_text(str(x)))
+add_reviews(balanced_worst_reviews)
+
+
 # sentiment pre-trained set trained on IMDB reviews.
 # i won't include sentiment as my laptop can't run it fast enough
 classifier = TextClassifier.load('en-sentiment')
+
+
 def flair_get_score_tweet(text):
     if not text:
         return 0
@@ -252,6 +346,8 @@ def flair_get_score_tweet(text):
         # -0.991
         result = float(-(sentence.to_dict()['all labels'][0]['confidence']))
     return round(result, 3)
+
+
 # flair sentiment on the whole tweet
 
 # Check the distribution of the score
@@ -268,42 +364,36 @@ def sentiment_pie(df):
     plt.pie(values, labels=sentiment, autopct='%1.1f%%', startangle=90)
     plt.show()
 
-# CODE FOR TOP BOOKS
 
-print("top books")
 
-plt_genres(book_data_df)
-
+#CODE TO RUN PLOTS FOR TOP RATED BOOKS
+'''
 convert_dates(book_data_df)
 convert_dates(book_reviews_df)
 
-# MERGED book information with reviews
+plt_genres(book_data_df)
 top_merged_df = pd.merge(book_data_df, book_reviews_df, on='Title')
-
-rating_distribution(book_reviews_df)
-
+rating_distribution(top_merged_df)
 year_to_rating(top_merged_df)
 ratings_over_years(top_merged_df)
-
-
-# MERGE AGAIN WITH PRICE
 top_merged_df = pd.merge(top_merged_df, book_price_df, on='Title')
 price_per_genre(top_merged_df)
 no_reviews(top_merged_df)
+review_boxplot(book_data_df)
 
+#NLTK
 # axis=1 means drop columns not row
-# Cleaning text
 book_reviews_df = book_reviews_df.drop(['Username', 'Review Date'], axis=1)
 # book_reviews_df['Description'] rows are objects, but i need to convert them to string
 custom_stopwords(book_data_df)
 book_reviews_df['Description'] = book_reviews_df['Description'].apply(lambda x: clean_text(str(x)))
-
 # wordcloud
 add_reviews(book_reviews_df)
 # sentiment
 book_reviews_df['flair_confidence'] = book_reviews_df['Description'].apply(flair_get_score_tweet)
 print(book_reviews_df['flair_confidence'])
 sentiment_pie(book_reviews_df)
+'''
 
 
 # CODE FOR WORST BOOKS
@@ -332,15 +422,10 @@ control_reviews_df['Description'] = control_reviews_df['Description'].apply(lamb
 
 # worcloud
 add_reviews(control_reviews_df)
+
 '''
 
-# code to show amount of similar books in both lists
-'''
-common = pd.merge(book_data_df, control_data_df, how='inner', on=['Title'])
-common.to_csv("common_books_2.csv")
-'''
-
-#worst rated book as - 2nd control list
+# worst rated book as - 2nd control list
 '''
 print("worst books")
 convert_dates(worst_rated_data)
